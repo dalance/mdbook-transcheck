@@ -282,13 +282,16 @@ mod test {
     #[test]
     fn test_check_dir() {
         let differ = Differ { code_comment: true };
-        let ret = differ
+        let mut ret = differ
             .check_dir(
                 format!("{}/testcase/original", std::env!("CARGO_MANIFEST_DIR")),
                 format!("{}/testcase/translated", std::env!("CARGO_MANIFEST_DIR")),
             )
             .unwrap();
-        dbg!(&ret);
+        ret.sort_by_key(|x| match x {
+            Missing::Lines(x) => x.source_path.clone(),
+            Missing::File(x) => x.source_path.clone(),
+        });
         assert_eq!(ret.len(), 3);
         assert!(
             matches!(&ret[0], Missing::Lines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
