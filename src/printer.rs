@@ -83,7 +83,7 @@ impl Printer {
         println!(
             "\n{}{}",
             style("Error").red().bold(),
-            style(": target line is modifies").white().bold()
+            style(": target line is modified").white().bold()
         );
         println!(
             "{}{}",
