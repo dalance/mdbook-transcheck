@@ -291,7 +291,10 @@ mod test {
 
     #[test]
     fn test_check_dir() {
-        let differ = Differ { code_comment: true };
+        let differ = Differ {
+            code_comment: true,
+            similar_threshold: 0.5,
+        };
         let mut ret = differ
             .check_dir(
                 format!("{}/testcase/original", std::env!("CARGO_MANIFEST_DIR")),
