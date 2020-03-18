@@ -1,6 +1,9 @@
 # mdbook-transcheck
 Checker for translated mdbook
 
+[![Actions Status](https://github.com/dalance/mdbook-transcheck/workflows/Regression/badge.svg)](https://github.com/dalance/mdbook-transcheck/actions)
+[![Crates.io](https://img.shields.io/crates/v/mdbook-transcheck.svg)](https://crates.io/crates/mdbook-transcheck)
+
 # Install
 
 ```console
