@@ -6,6 +6,12 @@ pub struct Printer {
     pub verbose: bool,
 }
 
+#[derive(Debug)]
+pub enum PrintLine<'a> {
+    Modified((&'a Line, &'a Line)),
+    Missing(Vec<&'a Line>),
+}
+
 impl Printer {
     pub fn print(&self, missings: &[Missing]) -> Result<bool, Error> {
         let mut ret = true;
@@ -43,11 +49,44 @@ impl Printer {
         if missing.lines.is_empty() {
             Ok(true)
         } else {
+            let mut lines = Vec::new();
+            let mut neighbor = Vec::new();
+            let mut prev_line = None;
             for line in &missing.lines {
                 if let Some(ref target) = line.target {
-                    self.print_modified_line(missing, &line.source, target)?;
+                    lines.push(PrintLine::Modified((&line.source, target)));
                 } else {
-                    self.print_missing_line(missing, &line.source)?;
+                    match prev_line {
+                        Some(x) => {
+                            if x + 1 == line.source.number {
+                                neighbor.push(&line.source);
+                            } else {
+                                if !neighbor.is_empty() {
+                                    lines.push(PrintLine::Missing(neighbor.clone()));
+                                }
+                                neighbor.clear();
+                                neighbor.push(&line.source);
+                            }
+                        }
+                        None => {
+                            neighbor.push(&line.source);
+                        }
+                    }
+                    prev_line = Some(line.source.number);
+                }
+            }
+            if !neighbor.is_empty() {
+                lines.push(PrintLine::Missing(neighbor.clone()));
+            }
+
+            for line in &lines {
+                match line {
+                    PrintLine::Modified((x, y)) => {
+                        self.print_modified_line(missing, x, y)?;
+                    }
+                    PrintLine::Missing(x) => {
+                        self.print_missing_line(missing, x.as_slice())?;
+                    }
                 }
             }
             Ok(false)
@@ -83,7 +122,7 @@ impl Printer {
         println!(
             "\n{}{}",
             style("Error").red().bold(),
-            style(": target line is modified").white().bold()
+            style(": source line has been modified").white().bold()
         );
         println!(
             "{}{}",
@@ -137,11 +176,13 @@ impl Printer {
         Ok(())
     }
 
-    fn print_missing_line(&self, missing: &MissingLines, source: &Line) -> Result<(), Error> {
+    fn print_missing_line(&self, missing: &MissingLines, sources: &[&Line]) -> Result<(), Error> {
         println!(
             "\n{}{}",
             style("Error").red().bold(),
-            style(": source line is missing").white().bold()
+            style(": lines has been inserted to the source file")
+                .white()
+                .bold()
         );
         println!(
             "{}{}",
@@ -149,19 +190,39 @@ impl Printer {
             style(format!(
                 "{}:{}",
                 missing.source_path.to_string_lossy(),
-                source.number
+                sources[0].number
             ))
             .white()
         );
-        let number = format!("{}", source.number);
-        let number_space = " ".repeat(number.len());
+
+        let mut max_width = 0;
+        for source in sources {
+            let number = format!("{}", source.number);
+            max_width = std::cmp::max(number.len(), max_width);
+        }
+        let number_space = " ".repeat(max_width);
+
+        println!("{}", style(format!("{} |", number_space)).blue().bold());
+        for source in sources {
+            println!(
+                "{}{}",
+                style(format!("{} | ", source.number)).blue().bold(),
+                style(&source.content).white(),
+            );
+        }
         println!("{}", style(format!("{} |", number_space)).blue().bold());
         println!(
-            "{}{}",
-            style(format!("{} | ", number)).blue().bold(),
-            style(&source.content).white(),
+            "{}{}{}",
+            style(format!("{} =", number_space)).blue().bold(),
+            style(" hint").yellow().bold(),
+            style(format!(
+                ": The lines should be inserted at {}:{}\n",
+                missing.target_path.to_string_lossy(),
+                sources[0].last_both
+            ))
+            .white()
+            .bold()
         );
-        println!("{}", style(format!("{} |\n", number_space)).blue().bold());
         Ok(())
     }
 }

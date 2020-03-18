@@ -29,14 +29,7 @@ Error: target path is not found
     target path: testcase/translated/missing_file.md
 
 
-Error: source line is missing
- source --> testcase/original/missing_lines.md:2
-  |
-2 | Orange
-  |
-
-
-Error: target line is modifies
+Error: source line has been modified
  source --> testcase/original/missing_lines.md:5
   |
 5 | This is an orange.
@@ -48,4 +41,12 @@ Error: target line is modifies
 9 | This is an apple.
   |             ^^^
   |
+
+
+Error: lines has been inserted to the source file
+ source --> testcase/original/missing_lines.md:2
+  |
+2 | Orange
+  |
+  = hint: The lines should be inserted at testcase/translated/missing_lines.md:2
 ```

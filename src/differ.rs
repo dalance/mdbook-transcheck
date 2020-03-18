@@ -10,6 +10,7 @@ use walkdir::WalkDir;
 pub struct Line {
     pub number: usize,
     pub content: String,
+    pub last_both: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +41,7 @@ pub enum Missing {
 #[derive(Clone, Debug)]
 pub struct Differ {
     pub code_comment: bool,
+    pub similar_threshold: f64,
 }
 
 impl Differ {
@@ -105,7 +107,7 @@ impl Differ {
         for (lefts, rights) in missing_lines {
             let mut rights = rights.as_slice();
             for left in &lefts {
-                let (similar_line, r) = Differ::get_similar_line(left, rights);
+                let (similar_line, r) = self.get_similar_line(left, rights);
                 rights = r;
                 if let Some(similar_line) = similar_line {
                     lines.push(MissingLine {
@@ -156,6 +158,8 @@ impl Differ {
     fn get_missing_lines(source: &str, target: &str) -> Vec<(Vec<Line>, Vec<Line>)> {
         let mut source_line = 0;
         let mut target_line = 0;
+        let mut last_both_source_line = 0;
+        let mut last_both_target_line = 0;
         let mut left_lines = Vec::new();
         let mut right_lines = Vec::new();
         let mut missing_lines = Vec::new();
@@ -164,6 +168,8 @@ impl Differ {
                 diff::Result::Both(_, _) => {
                     source_line += 1;
                     target_line += 1;
+                    last_both_source_line = source_line;
+                    last_both_target_line = target_line;
                     if !left_lines.is_empty() {
                         missing_lines.push((left_lines.clone(), right_lines.clone()));
                     }
@@ -175,6 +181,7 @@ impl Differ {
                     let line = Line {
                         number: source_line,
                         content: String::from(x),
+                        last_both: last_both_target_line,
                     };
                     left_lines.push(line);
                 }
@@ -183,6 +190,7 @@ impl Differ {
                     let line = Line {
                         number: target_line,
                         content: String::from(x),
+                        last_both: last_both_source_line,
                     };
                     right_lines.push(line);
                 }
@@ -195,10 +203,11 @@ impl Differ {
     }
 
     fn get_similar_line<'a, 'b>(
+        &self,
         source: &'a Line,
         target: &'b [Line],
     ) -> (Option<Line>, &'b [Line]) {
-        let mut max_similarity = 0;
+        let mut max_similarity = 0.0;
         let mut similar_line = None;
         let mut index = None;
         for (i, t) in target.iter().enumerate() {
@@ -212,7 +221,8 @@ impl Differ {
                     }
                 })
                 .count();
-            if similarity > max_similarity {
+            let similarity = similarity as f64 / source.content.len() as f64;
+            if similarity > max_similarity && similarity > self.similar_threshold {
                 max_similarity = similarity;
                 similar_line = Some(t.clone());
                 index = Some(i);

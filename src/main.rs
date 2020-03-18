@@ -63,7 +63,10 @@ fn main() {
 fn run() -> Result<bool, Error> {
     let opt = Opt::from_args();
 
-    let differ = Differ { code_comment: true };
+    let differ = Differ {
+        code_comment: true,
+        similar_threshold: 0.5,
+    };
     let printer = Printer { verbose: false };
 
     let missings = differ.check_dir(&opt.source, &opt.target)?;
