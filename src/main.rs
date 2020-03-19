@@ -1,6 +1,9 @@
+mod fixer;
 mod matcher;
 mod printer;
+mod util;
 
+use crate::fixer::Fixer;
 use crate::matcher::Matcher;
 use crate::printer::Printer;
 use anyhow::Error;
@@ -25,6 +28,14 @@ pub struct Opt {
     /// Target directory
     #[structopt(name = "TARGET")]
     pub target: PathBuf,
+
+    /// Apply auto fix
+    #[structopt(long = "fix")]
+    pub fix: bool,
+
+    /// Prints verbose message
+    #[structopt(short = "v", long = "verbose")]
+    pub verbose: bool,
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -67,9 +78,19 @@ fn run() -> Result<bool, Error> {
         code_comment: true,
         similar_threshold: 0.5,
     };
-    let printer = Printer { verbose: false };
 
     let mismatches = matcher.check_dir(&opt.source, &opt.target)?;
-    let success = printer.print(&mismatches)?;
+
+    let success = if opt.fix {
+        let fixer = Fixer {
+            verbose: opt.verbose,
+        };
+        fixer.fix(&mismatches)?
+    } else {
+        let printer = Printer {
+            verbose: opt.verbose,
+        };
+        printer.print(&mismatches)?
+    };
     Ok(success)
 }

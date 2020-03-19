@@ -1,16 +1,10 @@
-use crate::matcher::{Line, Mismatch, MismatchLine, MismatchLines, MissingFile};
+use crate::matcher::{Line, Mismatch, MismatchLines, MissingFile};
+use crate::util::{combine_line, CombinedLine};
 use anyhow::Error;
 use console::style;
 
 pub struct Printer {
     pub verbose: bool,
-}
-
-#[derive(Debug)]
-pub enum PrintLine<'a> {
-    Modified((&'a Line, &'a Line)),
-    Missing(Vec<&'a Line>),
-    Garbage(Vec<&'a Line>),
 }
 
 impl Printer {
@@ -50,72 +44,17 @@ impl Printer {
         if mismatch.lines.is_empty() {
             Ok(true)
         } else {
-            let mut lines = Vec::new();
-            let mut source_neighbor = Vec::new();
-            let mut target_neighbor = Vec::new();
-            let mut source_prev_line = None;
-            let mut target_prev_line = None;
-            for line in &mismatch.lines {
-                match line {
-                    MismatchLine::Modified(line) => {
-                        lines.push(PrintLine::Modified((&line.source, &line.target)));
-                    }
-                    MismatchLine::Missing(line) => {
-                        match source_prev_line {
-                            Some(x) => {
-                                if x + 1 == line.source.number {
-                                    source_neighbor.push(&line.source);
-                                } else {
-                                    if !source_neighbor.is_empty() {
-                                        lines.push(PrintLine::Missing(source_neighbor.clone()));
-                                    }
-                                    source_neighbor.clear();
-                                    source_neighbor.push(&line.source);
-                                }
-                            }
-                            None => {
-                                source_neighbor.push(&line.source);
-                            }
-                        }
-                        source_prev_line = Some(line.source.number);
-                    }
-                    MismatchLine::Garbage(line) => {
-                        match target_prev_line {
-                            Some(x) => {
-                                if x + 1 == line.target.number {
-                                    target_neighbor.push(&line.target);
-                                } else {
-                                    if !target_neighbor.is_empty() {
-                                        lines.push(PrintLine::Garbage(target_neighbor.clone()));
-                                    }
-                                    target_neighbor.clear();
-                                    target_neighbor.push(&line.target);
-                                }
-                            }
-                            None => {
-                                target_neighbor.push(&line.target);
-                            }
-                        }
-                        target_prev_line = Some(line.target.number);
-                    }
-                }
-            }
-            if !source_neighbor.is_empty() {
-                lines.push(PrintLine::Missing(source_neighbor.clone()));
-            }
-            if !target_neighbor.is_empty() {
-                lines.push(PrintLine::Garbage(target_neighbor.clone()));
-            }
+            let lines = combine_line(mismatch);
 
             for line in &lines {
                 match line {
-                    PrintLine::Modified((x, y)) => {
+                    CombinedLine::Modified((x, y)) => {
                         self.print_modified_line(mismatch, x, y)?;
                     }
-                    PrintLine::Missing(x) => {
+                    CombinedLine::Missing(x) => {
                         self.print_missing_line(mismatch, x.as_slice())?;
                     }
-                    PrintLine::Garbage(x) => {
+                    CombinedLine::Garbage(x) => {
                         self.print_garbage_line(mismatch, x.as_slice())?;
                     }
                 }
