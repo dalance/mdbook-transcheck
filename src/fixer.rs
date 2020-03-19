@@ -62,13 +62,13 @@ impl Fixer {
             let target_path = &mismatch.target_path;
 
             {
-                let mut target_reader = BufReader::new(File::open(target_path).context(
-                    format!("Failed to open '{}'", target_path.to_string_lossy()),
-                )?);
-                target_reader.read_to_string(&mut target).context(format!(
-                    "Failed to read '{}'",
-                    target_path.to_string_lossy()
-                ))?;
+                let mut target_reader =
+                    BufReader::new(File::open(target_path).with_context(|| {
+                        format!("Failed to open '{}'", target_path.to_string_lossy())
+                    })?);
+                target_reader.read_to_string(&mut target).with_context(|| {
+                    format!("Failed to read '{}'", target_path.to_string_lossy())
+                })?;
             }
 
             // sort by line number
@@ -137,16 +137,13 @@ impl Fixer {
             }
             dbg!(&modified);
 
-            let mut target_writer = BufWriter::new(File::create(target_path).context(format!(
-                "Failed to open '{}'",
-                target_path.to_string_lossy()
-            ))?);
+            let mut target_writer =
+                BufWriter::new(File::create(target_path).with_context(|| {
+                    format!("Failed to open '{}'", target_path.to_string_lossy())
+                })?);
             target_writer
                 .write_all(modified.as_bytes())
-                .context(format!(
-                    "Failed to write '{}'",
-                    target_path.to_string_lossy()
-                ))?;
+                .with_context(|| format!("Failed to write '{}'", target_path.to_string_lossy()))?;
             target_writer.flush()?;
         }
         Ok(true)

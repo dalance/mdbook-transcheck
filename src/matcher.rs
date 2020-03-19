@@ -58,7 +58,8 @@ pub enum Mismatch {
 
 #[derive(Clone, Debug)]
 pub struct Matcher {
-    pub code_comment: bool,
+    pub enable_code_comment_tweak: bool,
+    pub code_comment_header: String,
     pub similar_threshold: f64,
 }
 
@@ -68,10 +69,7 @@ impl Matcher {
         let source = source.as_ref();
         for entry in WalkDir::new(&source) {
             let source_path = entry
-                .context(format!(
-                    "Failed to enumerate '{}'",
-                    source.to_string_lossy()
-                ))?
+                .with_context(|| format!("Failed to enumerate '{}'", source.to_string_lossy()))?
                 .into_path();
             let mut target_path = PathBuf::new();
             target_path.push(&target);
@@ -98,24 +96,22 @@ impl Matcher {
         let source_path = source.as_ref();
         let target_path = target.as_ref();
 
-        let mut source_reader = BufReader::new(File::open(source_path).context(format!(
-            "Failed to open '{}'",
-            source_path.to_string_lossy()
-        ))?);
-        let mut target_reader = BufReader::new(File::open(target_path).context(format!(
-            "Failed to open '{}'",
-            target_path.to_string_lossy()
-        ))?);
+        let mut source_reader = BufReader::new(
+            File::open(source_path)
+                .with_context(|| format!("Failed to open '{}'", source_path.to_string_lossy()))?,
+        );
+        let mut target_reader = BufReader::new(
+            File::open(target_path)
+                .with_context(|| format!("Failed to open '{}'", target_path.to_string_lossy()))?,
+        );
         let mut source = String::new();
         let mut target = String::new();
-        source_reader.read_to_string(&mut source).context(format!(
-            "Failed to read '{}'",
-            source_path.to_string_lossy()
-        ))?;
-        target_reader.read_to_string(&mut target).context(format!(
-            "Failed to read '{}'",
-            target_path.to_string_lossy()
-        ))?;
+        source_reader
+            .read_to_string(&mut source)
+            .with_context(|| format!("Failed to read '{}'", source_path.to_string_lossy()))?;
+        target_reader
+            .read_to_string(&mut target)
+            .with_context(|| format!("Failed to read '{}'", target_path.to_string_lossy()))?;
 
         let target = self.revert_code_comment(&target);
 
@@ -158,7 +154,7 @@ impl Matcher {
     }
 
     fn revert_code_comment<'a>(&self, target: &'a str) -> Cow<'a, str> {
-        if self.code_comment {
+        if self.enable_code_comment_tweak {
             let mut ret = String::new();
             let mut code_block = false;
             for line in target.lines() {
@@ -168,7 +164,7 @@ impl Matcher {
                     code_block = false;
                 }
 
-                let line = if code_block & line.starts_with("# ") {
+                let line = if code_block & line.starts_with(&self.code_comment_header) {
                     &line[2..]
                 } else {
                     line
