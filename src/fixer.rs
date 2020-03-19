@@ -28,8 +28,8 @@ impl Fixer {
     fn fix_file(&self, missing: &MissingFile) -> Result<bool, Error> {
         if self.verbose {
             println!(
-                "\n{}{}",
-                style("Copy").green().bold(),
+                "{}{}",
+                style("  Copy").green().bold(),
                 style(format!(
                     ": {} -> {}",
                     missing.source_path.to_string_lossy(),
@@ -41,6 +41,17 @@ impl Fixer {
         }
         fs::copy(&missing.source_path, &missing.target_path)?;
         Ok(true)
+    }
+
+    fn log(&self, header: &str, message: &str) -> Result<(), Error> {
+        if self.verbose {
+            println!(
+                "{}{}",
+                style(header).green().bold(),
+                style(format!(": {}", message)).white().bold()
+            );
+        }
+        Ok(())
     }
 
     fn fix_lines(&self, mismatch: &MismatchLines) -> Result<bool, Error> {
@@ -80,6 +91,10 @@ impl Fixer {
                 match iter.peek() {
                     Some(CombinedLine::Modified(x)) => {
                         if x.1.number == number {
+                            self.log(
+                                "Modify",
+                                &format!("{}:{}", target_path.to_string_lossy(), number),
+                            )?;
                             modified.push_str(&format!("{}\n", x.0.content));
                             iter.next();
                         } else {
@@ -88,6 +103,10 @@ impl Fixer {
                     }
                     Some(CombinedLine::Missing(x)) => {
                         if x[0].last_both == number {
+                            self.log(
+                                "Insert",
+                                &format!("{}:{}", target_path.to_string_lossy(), number),
+                            )?;
                             modified.push_str(&format!("{}\n", line));
                             for line in x {
                                 modified.push_str(&format!("{}\n", line.content));
@@ -99,6 +118,10 @@ impl Fixer {
                     }
                     Some(CombinedLine::Garbage(x)) => {
                         if x[0].number == number {
+                            self.log(
+                                "Remove",
+                                &format!("{}:{}", target_path.to_string_lossy(), number),
+                            )?;
                             for line in &x[1..] {
                                 removed_numbers.push(line.number);
                             }
