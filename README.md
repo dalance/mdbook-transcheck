@@ -43,8 +43,8 @@ code_comment_header = "# "
 | Key                       | Value       | Default | Description                                                                                                                     |
 | ------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | enable_code_comment_tweak | true, false | false   | Match code comment without `code_comment_header`                                                                                |
-| code_comment_header       | [String]    | `"# "`  |                                                                                                                                 |
-| similar_threshold         | [Float]     | 0.5     | If the ratio which the original and translated lines are matched exceeds `similar_threshold`, the line is judged as *modified*. |
+| code_comment_header       | String      | `"# "`  |                                                                                                                                 |
+| similar_threshold         | Float       | 0.5     | If the ratio which the original and translated lines are matched exceeds `similar_threshold`, the line is judged as *modified*. |
 
 # Example
 
