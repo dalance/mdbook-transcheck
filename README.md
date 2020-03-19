@@ -19,6 +19,21 @@ $ mdbook-transcheck src tgt
 `src` is the source directory of original mdbook.
 `tgt` is the source directory of translated mdbook.
 
+# Configuration
+
+The configuration file is `transcheck.toml`, which is put at the repository root.
+
+```toml
+enable_code_comment_tweak = true
+code_comment_header = "# "
+```
+
+| Key                       | Value       | Default | Description                                                                                                                     |
+| ------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| enable_code_comment_tweak | true, false | false   | Match code comment without `code_comment_header`                                                                                |
+| code_comment_header       | [String]    | `"# "`  |                                                                                                                                 |
+| similar_threshold         | [Float]     | 0.5     | If the ratio which the original and translated lines are matched exceeds `similar_threshold`, the line is judged as *modified*. |
+
 # Example
 
 ```console
