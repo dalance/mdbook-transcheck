@@ -52,28 +52,122 @@ code_comment_header = "# "
 $ mdbook-transcheck ./testcase/original ./testcase/translated
 
 Error: target path is not found
-    source path: testcase/original/missing_file.md
-    target path: testcase/translated/missing_file.md
+    source path: ./testcase/original/missing_file.md
+    target path: ./testcase/translated/missing_file.md
 
 
 Error: source line has been modified
- source --> testcase/original/missing_lines.md:5
+ source --> ./testcase/original/mismatch_lines.md:5
   |
 5 | This is an orange.
   |            ^^ ^^
   |
 
- target --> testcase/translated/missing_lines.md:9
-  |
-9 | This is an apple.
-  |             ^^^
-  |
+ target --> ./testcase/translated/mismatch_lines.md:11
+   |
+11 | This is an apple.
+   |             ^^^
+   |
 
 
 Error: lines has been inserted to the source file
- source --> testcase/original/missing_lines.md:2
+ source --> ./testcase/original/mismatch_lines.md:2
   |
 2 | Orange
   |
-  = hint: The lines should be inserted at testcase/translated/missing_lines.md:2
+  = hint: The lines should be inserted at ./testcase/translated/mismatch_lines.md:2
+
+
+Error: lines has been removed from the source file
+ target --> ./testcase/translated/mismatch_lines.md:4
+  |
+4 | Lemon
+  |
 ```
+
+# Markdown rule
+
+The translated markdown should follow some rules.
+
+* Keep original lines
+* Comment out original lines by `<!--` and `-->`
+
+## Simple example
+
+* original
+
+```markdown
+Apple
+Orange
+Peach
+```
+
+* translated
+
+```markdown
+<!--
+Apple
+Orange
+Peach
+-->
+りんご
+オレンジ
+桃
+```
+
+The following is NG because `<!-- Apple` and `Peach -->` are not matched with original lines.
+
+```markdown
+<!-- Apple
+Orange
+Peach -->
+りんご
+オレンジ
+桃
+```
+
+## Code block
+
+* original
+
+````markdown
+```rust
+// comment
+let a = b; // comment
+```
+````
+
+* translated
+
+````markdown
+```rust
+// comment
+// コメント
+let a = b; // comment
+           // コメント
+```
+````
+
+You can use `# ` to hide the original comment.
+`enable_code_comment_tweak` should be `true`, and `code_comment_header` should be `# `.
+
+````markdown
+```rust
+# // comment
+// コメント
+let a = b; // comment
+           // コメント
+```
+````
+
+You can use `# // ` to hide the original comment.
+`enable_code_comment_tweak` should be `true`, and `code_comment_header` should be `# // `.
+
+````markdown
+```rust
+# // // comment
+// コメント
+# // let a = b; // comment
+let a = b; // コメント
+```
+````
