@@ -160,7 +160,7 @@ let a = b; // comment
 ```
 ````
 
-You can use `# // ` to hide the original comment.
+You can use `# // ` to hide the original code and comment.
 `enable_code_comment_tweak` should be `true`, and `code_comment_header` should be `# // `.
 
 ````markdown
