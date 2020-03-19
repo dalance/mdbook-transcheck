@@ -340,7 +340,8 @@ mod test {
     #[test]
     fn test_check_dir() {
         let matcher = Matcher {
-            code_comment: true,
+            enable_code_comment_tweak: true,
+            code_comment_header: String::from("# "),
             similar_threshold: 0.5,
         };
         let mut ret = matcher
