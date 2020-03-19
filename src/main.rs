@@ -42,6 +42,10 @@ pub struct Opt {
     #[structopt(short = "v", long = "verbose")]
     pub verbose: bool,
 
+    /// Dry run
+    #[structopt(long = "dry-run")]
+    pub dry_run: bool,
+
     /// Config file
     #[structopt(long = "config", default_value = "transcheck.toml")]
     pub config: PathBuf,
@@ -108,7 +112,7 @@ fn run() -> Result<bool, Error> {
 
     let success = if opt.fix {
         let fixer = Fixer {
-            verbose: opt.verbose,
+            dry_run: opt.dry_run,
         };
         fixer.fix(&mismatches)?
     } else {

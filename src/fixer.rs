@@ -6,7 +6,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 
 pub struct Fixer {
-    pub verbose: bool,
+    pub dry_run: bool,
 }
 
 impl Fixer {
@@ -26,31 +26,29 @@ impl Fixer {
     }
 
     fn fix_file(&self, missing: &MissingFile) -> Result<bool, Error> {
-        if self.verbose {
-            println!(
-                "{}{}",
-                style("  Copy").green().bold(),
-                style(format!(
-                    ": {} -> {}",
-                    missing.source_path.to_string_lossy(),
-                    missing.target_path.to_string_lossy()
-                ))
-                .white()
-                .bold()
-            );
+        println!(
+            "{}{}",
+            style("  Copy").green().bold(),
+            style(format!(
+                ": {} -> {}",
+                missing.source_path.to_string_lossy(),
+                missing.target_path.to_string_lossy()
+            ))
+            .white()
+            .bold()
+        );
+        if !self.dry_run {
+            fs::copy(&missing.source_path, &missing.target_path)?;
         }
-        fs::copy(&missing.source_path, &missing.target_path)?;
         Ok(true)
     }
 
     fn log(&self, header: &str, message: &str) -> Result<(), Error> {
-        if self.verbose {
-            println!(
-                "{}{}",
-                style(header).green().bold(),
-                style(format!(": {}", message)).white().bold()
-            );
-        }
+        println!(
+            "{}{}",
+            style(header).green().bold(),
+            style(format!(": {}", message)).white().bold()
+        );
         Ok(())
     }
 
@@ -135,16 +133,19 @@ impl Fixer {
                     }
                 }
             }
-            dbg!(&modified);
 
-            let mut target_writer =
-                BufWriter::new(File::create(target_path).with_context(|| {
-                    format!("Failed to open '{}'", target_path.to_string_lossy())
-                })?);
-            target_writer
-                .write_all(modified.as_bytes())
-                .with_context(|| format!("Failed to write '{}'", target_path.to_string_lossy()))?;
-            target_writer.flush()?;
+            if !self.dry_run {
+                let mut target_writer =
+                    BufWriter::new(File::create(target_path).with_context(|| {
+                        format!("Failed to open '{}'", target_path.to_string_lossy())
+                    })?);
+                target_writer
+                    .write_all(modified.as_bytes())
+                    .with_context(|| {
+                        format!("Failed to write '{}'", target_path.to_string_lossy())
+                    })?;
+                target_writer.flush()?;
+            }
         }
         Ok(true)
     }
