@@ -12,12 +12,24 @@ $ cargo install mdbook-transcheck
 
 # Usage
 
+## Check
+
+The following command checks whether `src` and `tgt` are synchronized.
+
 ```console
 $ mdbook-transcheck src tgt
 ```
 
 `src` is the source directory of original mdbook.
 `tgt` is the source directory of translated mdbook.
+
+## Fix
+
+The following command applies the differences between `src` and `tgt` to `tgt`.
+
+```console
+$ mdbook-transcheck --fix src tgt
+```
 
 # Configuration
 
