@@ -1,7 +1,7 @@
-mod differ;
+mod matcher;
 mod printer;
 
-use crate::differ::Differ;
+use crate::matcher::Matcher;
 use crate::printer::Printer;
 use anyhow::Error;
 use console::style;
@@ -63,13 +63,13 @@ fn main() {
 fn run() -> Result<bool, Error> {
     let opt = Opt::from_args();
 
-    let differ = Differ {
+    let matcher = Matcher {
         code_comment: true,
         similar_threshold: 0.5,
     };
     let printer = Printer { verbose: false };
 
-    let missings = differ.check_dir(&opt.source, &opt.target)?;
-    let success = printer.print(&missings)?;
+    let mismatches = matcher.check_dir(&opt.source, &opt.target)?;
+    let success = printer.print(&mismatches)?;
     Ok(success)
 }

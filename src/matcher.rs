@@ -11,19 +11,37 @@ pub struct Line {
     pub number: usize,
     pub content: String,
     pub last_both: usize,
+    pub comment: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModifiedLine {
+    pub source: Line,
+    pub target: Line,
 }
 
 #[derive(Clone, Debug)]
 pub struct MissingLine {
     pub source: Line,
-    pub target: Option<Line>,
 }
 
 #[derive(Clone, Debug)]
-pub struct MissingLines {
+pub struct GarbageLine {
+    pub target: Line,
+}
+
+#[derive(Clone, Debug)]
+pub enum MismatchLine {
+    Modified(ModifiedLine),
+    Missing(MissingLine),
+    Garbage(GarbageLine),
+}
+
+#[derive(Clone, Debug)]
+pub struct MismatchLines {
     pub source_path: PathBuf,
     pub target_path: PathBuf,
-    pub lines: Vec<MissingLine>,
+    pub lines: Vec<MismatchLine>,
 }
 
 #[derive(Clone, Debug)]
@@ -33,19 +51,19 @@ pub struct MissingFile {
 }
 
 #[derive(Clone, Debug)]
-pub enum Missing {
-    File(MissingFile),
-    Lines(MissingLines),
+pub enum Mismatch {
+    MissingFile(MissingFile),
+    MismatchLines(MismatchLines),
 }
 
 #[derive(Clone, Debug)]
-pub struct Differ {
+pub struct Matcher {
     pub code_comment: bool,
     pub similar_threshold: f64,
 }
 
-impl Differ {
-    pub fn check_dir<T: AsRef<Path>>(&self, source: T, target: T) -> Result<Vec<Missing>, Error> {
+impl Matcher {
+    pub fn check_dir<T: AsRef<Path>>(&self, source: T, target: T) -> Result<Vec<Mismatch>, Error> {
         let mut ret = Vec::new();
         let source = source.as_ref();
         for entry in WalkDir::new(&source) {
@@ -62,21 +80,21 @@ impl Differ {
                 if !target_path.exists() {
                     let source_path = PathBuf::from(&source_path);
                     let target_path = PathBuf::from(&target_path);
-                    let missing = Missing::File(MissingFile {
+                    let mismatch = Mismatch::MissingFile(MissingFile {
                         source_path,
                         target_path,
                     });
-                    ret.push(missing);
+                    ret.push(mismatch);
                 } else {
-                    let missing_lines = self.check_file(&source_path, &target_path)?;
-                    ret.push(Missing::Lines(missing_lines));
+                    let mismatch_lines = self.check_file(&source_path, &target_path)?;
+                    ret.push(Mismatch::MismatchLines(mismatch_lines));
                 }
             }
         }
         Ok(ret)
     }
 
-    pub fn check_file<T: AsRef<Path>>(&self, source: T, target: T) -> Result<MissingLines, Error> {
+    pub fn check_file<T: AsRef<Path>>(&self, source: T, target: T) -> Result<MismatchLines, Error> {
         let source_path = source.as_ref();
         let target_path = target.as_ref();
 
@@ -101,29 +119,38 @@ impl Differ {
 
         let target = self.revert_code_comment(&target);
 
-        let missing_lines = Differ::get_missing_lines(&source, &target);
+        let mismatch_lines = Matcher::get_mismatch_lines(&source, &target);
 
         let mut lines = Vec::new();
-        for (lefts, rights) in missing_lines {
+        for (lefts, rights) in mismatch_lines {
             let mut rights = rights.as_slice();
             for left in &lefts {
-                let (similar_line, r) = self.get_similar_line(left, rights);
+                let (similar_line, r, garbage) = self.get_similar_line(left, rights);
+                for g in garbage {
+                    if g.comment {
+                        lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
+                    }
+                }
                 rights = r;
                 if let Some(similar_line) = similar_line {
-                    lines.push(MissingLine {
+                    lines.push(MismatchLine::Modified(ModifiedLine {
                         source: left.clone(),
-                        target: Some(similar_line),
-                    });
+                        target: similar_line,
+                    }));
                 } else {
-                    lines.push(MissingLine {
+                    lines.push(MismatchLine::Missing(MissingLine {
                         source: left.clone(),
-                        target: None,
-                    });
+                    }));
+                }
+            }
+            for g in rights {
+                if g.comment {
+                    lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
                 }
             }
         }
 
-        Ok(MissingLines {
+        Ok(MismatchLines {
             source_path: PathBuf::from(source_path),
             target_path: PathBuf::from(target_path),
             lines,
@@ -155,14 +182,15 @@ impl Differ {
         }
     }
 
-    fn get_missing_lines(source: &str, target: &str) -> Vec<(Vec<Line>, Vec<Line>)> {
+    fn get_mismatch_lines(source: &str, target: &str) -> Vec<(Vec<Line>, Vec<Line>)> {
         let mut source_line = 0;
         let mut target_line = 0;
         let mut last_both_source_line = 0;
         let mut last_both_target_line = 0;
+        let mut target_comment = false;
         let mut left_lines = Vec::new();
         let mut right_lines = Vec::new();
-        let mut missing_lines = Vec::new();
+        let mut mismatch_lines = Vec::new();
         for d in diff::lines(&source, &target) {
             match d {
                 diff::Result::Both(_, _) => {
@@ -171,7 +199,14 @@ impl Differ {
                     last_both_source_line = source_line;
                     last_both_target_line = target_line;
                     if !left_lines.is_empty() {
-                        missing_lines.push((left_lines.clone(), right_lines.clone()));
+                        mismatch_lines.push((left_lines.clone(), right_lines.clone()));
+                    } else if right_lines.iter().any(|x: &Line| x.comment) {
+                        let right_lines: Vec<_> = right_lines
+                            .iter()
+                            .filter(|x| x.comment)
+                            .map(|x| x.clone())
+                            .collect();
+                        mismatch_lines.push((left_lines.clone(), right_lines));
                     }
                     left_lines.clear();
                     right_lines.clear();
@@ -182,31 +217,48 @@ impl Differ {
                         number: source_line,
                         content: String::from(x),
                         last_both: last_both_target_line,
+                        comment: false,
                     };
                     left_lines.push(line);
                 }
                 diff::Result::Right(x) => {
+                    if x.trim().starts_with("-->") {
+                        target_comment = false;
+                    }
+
                     target_line += 1;
                     let line = Line {
                         number: target_line,
                         content: String::from(x),
                         last_both: last_both_source_line,
+                        comment: target_comment,
                     };
                     right_lines.push(line);
+
+                    if x.trim().starts_with("<!--") {
+                        target_comment = true;
+                    }
                 }
             }
         }
         if !left_lines.is_empty() {
-            missing_lines.push((left_lines.clone(), right_lines.clone()));
+            mismatch_lines.push((left_lines.clone(), right_lines.clone()));
+        } else if right_lines.iter().any(|x: &Line| x.comment) {
+            let right_lines: Vec<_> = right_lines
+                .iter()
+                .filter(|x| x.comment)
+                .map(|x| x.clone())
+                .collect();
+            mismatch_lines.push((left_lines.clone(), right_lines));
         }
-        missing_lines
+        mismatch_lines
     }
 
     fn get_similar_line<'a, 'b>(
         &self,
         source: &'a Line,
         target: &'b [Line],
-    ) -> (Option<Line>, &'b [Line]) {
+    ) -> (Option<Line>, &'b [Line], &'b [Line]) {
         let mut max_similarity = 0.0;
         let mut similar_line = None;
         let mut index = None;
@@ -230,9 +282,9 @@ impl Differ {
         }
 
         if let Some(index) = index {
-            (similar_line, &target[index + 1..])
+            (similar_line, &target[index + 1..], &target[0..index])
         } else {
-            (similar_line, target)
+            (similar_line, target, &[])
         }
     }
 }
@@ -242,7 +294,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_get_missing_lines_match() {
+    fn test_get_mismatch_lines_match() {
         let source = r##"
         aaa
         bbb
@@ -256,12 +308,12 @@ mod test {
         ccc
             "##;
 
-        let ret = Differ::get_missing_lines(source, target);
+        let ret = Matcher::get_mismatch_lines(source, target);
         assert_eq!(ret.len(), 0);
     }
 
     #[test]
-    fn test_get_missing_lines_diff() {
+    fn test_get_mismatch_lines_diff() {
         let source = r##"
         aaa
         bbb
@@ -275,7 +327,7 @@ mod test {
         ccc
             "##;
 
-        let ret = Differ::get_missing_lines(source, target);
+        let ret = Matcher::get_mismatch_lines(source, target);
         assert_eq!(ret.len(), 1);
         assert_eq!(ret[0].0.len(), 1);
         assert_eq!(ret[0].0[0].number, 3);
@@ -291,29 +343,29 @@ mod test {
 
     #[test]
     fn test_check_dir() {
-        let differ = Differ {
+        let matcher = Matcher {
             code_comment: true,
             similar_threshold: 0.5,
         };
-        let mut ret = differ
+        let mut ret = matcher
             .check_dir(
                 format!("{}/testcase/original", std::env!("CARGO_MANIFEST_DIR")),
                 format!("{}/testcase/translated", std::env!("CARGO_MANIFEST_DIR")),
             )
             .unwrap();
         ret.sort_by_key(|x| match x {
-            Missing::Lines(x) => x.source_path.clone(),
-            Missing::File(x) => x.source_path.clone(),
+            Mismatch::MismatchLines(x) => x.source_path.clone(),
+            Mismatch::MissingFile(x) => x.source_path.clone(),
         });
         assert_eq!(ret.len(), 3);
         assert!(
-            matches!(&ret[0], Missing::Lines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
+            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[1], Missing::File(x) if x.source_path.file_name().unwrap() == "missing_file.md")
+            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[2], Missing::Lines(x) if x.source_path.file_name().unwrap() == "missing_lines.md" && !x.lines.is_empty())
+            matches!(&ret[2], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
         );
     }
 }

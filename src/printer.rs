@@ -1,4 +1,4 @@
-use crate::differ::{Line, Missing, MissingFile, MissingLines};
+use crate::matcher::{Line, Mismatch, MismatchLine, MismatchLines, MissingFile};
 use anyhow::Error;
 use console::style;
 
@@ -10,17 +10,18 @@ pub struct Printer {
 pub enum PrintLine<'a> {
     Modified((&'a Line, &'a Line)),
     Missing(Vec<&'a Line>),
+    Garbage(Vec<&'a Line>),
 }
 
 impl Printer {
-    pub fn print(&self, missings: &[Missing]) -> Result<bool, Error> {
+    pub fn print(&self, mismatches: &[Mismatch]) -> Result<bool, Error> {
         let mut ret = true;
-        for missing in missings {
-            match missing {
-                Missing::File(x) => {
+        for mismatch in mismatches {
+            match mismatch {
+                Mismatch::MissingFile(x) => {
                     ret = ret & self.print_file(x)?;
                 }
-                Missing::Lines(x) => {
+                Mismatch::MismatchLines(x) => {
                     ret = ret & self.print_lines(x)?;
                 }
             }
@@ -45,47 +46,77 @@ impl Printer {
         Ok(false)
     }
 
-    fn print_lines(&self, missing: &MissingLines) -> Result<bool, Error> {
-        if missing.lines.is_empty() {
+    fn print_lines(&self, mismatch: &MismatchLines) -> Result<bool, Error> {
+        if mismatch.lines.is_empty() {
             Ok(true)
         } else {
             let mut lines = Vec::new();
-            let mut neighbor = Vec::new();
-            let mut prev_line = None;
-            for line in &missing.lines {
-                if let Some(ref target) = line.target {
-                    lines.push(PrintLine::Modified((&line.source, target)));
-                } else {
-                    match prev_line {
-                        Some(x) => {
-                            if x + 1 == line.source.number {
-                                neighbor.push(&line.source);
-                            } else {
-                                if !neighbor.is_empty() {
-                                    lines.push(PrintLine::Missing(neighbor.clone()));
+            let mut source_neighbor = Vec::new();
+            let mut target_neighbor = Vec::new();
+            let mut source_prev_line = None;
+            let mut target_prev_line = None;
+            for line in &mismatch.lines {
+                match line {
+                    MismatchLine::Modified(line) => {
+                        lines.push(PrintLine::Modified((&line.source, &line.target)));
+                    }
+                    MismatchLine::Missing(line) => {
+                        match source_prev_line {
+                            Some(x) => {
+                                if x + 1 == line.source.number {
+                                    source_neighbor.push(&line.source);
+                                } else {
+                                    if !source_neighbor.is_empty() {
+                                        lines.push(PrintLine::Missing(source_neighbor.clone()));
+                                    }
+                                    source_neighbor.clear();
+                                    source_neighbor.push(&line.source);
                                 }
-                                neighbor.clear();
-                                neighbor.push(&line.source);
+                            }
+                            None => {
+                                source_neighbor.push(&line.source);
                             }
                         }
-                        None => {
-                            neighbor.push(&line.source);
-                        }
+                        source_prev_line = Some(line.source.number);
                     }
-                    prev_line = Some(line.source.number);
+                    MismatchLine::Garbage(line) => {
+                        match target_prev_line {
+                            Some(x) => {
+                                if x + 1 == line.target.number {
+                                    target_neighbor.push(&line.target);
+                                } else {
+                                    if !target_neighbor.is_empty() {
+                                        lines.push(PrintLine::Garbage(target_neighbor.clone()));
+                                    }
+                                    target_neighbor.clear();
+                                    target_neighbor.push(&line.target);
+                                }
+                            }
+                            None => {
+                                target_neighbor.push(&line.target);
+                            }
+                        }
+                        target_prev_line = Some(line.target.number);
+                    }
                 }
             }
-            if !neighbor.is_empty() {
-                lines.push(PrintLine::Missing(neighbor.clone()));
+            if !source_neighbor.is_empty() {
+                lines.push(PrintLine::Missing(source_neighbor.clone()));
+            }
+            if !target_neighbor.is_empty() {
+                lines.push(PrintLine::Garbage(target_neighbor.clone()));
             }
 
             for line in &lines {
                 match line {
                     PrintLine::Modified((x, y)) => {
-                        self.print_modified_line(missing, x, y)?;
+                        self.print_modified_line(mismatch, x, y)?;
                     }
                     PrintLine::Missing(x) => {
-                        self.print_missing_line(missing, x.as_slice())?;
+                        self.print_missing_line(mismatch, x.as_slice())?;
+                    }
+                    PrintLine::Garbage(x) => {
+                        self.print_garbage_line(mismatch, x.as_slice())?;
                     }
                 }
             }
@@ -95,7 +126,7 @@ impl Printer {
 
     fn print_modified_line(
         &self,
-        missing: &MissingLines,
+        mismatch: &MismatchLines,
         source: &Line,
         target: &Line,
     ) -> Result<(), Error> {
@@ -129,7 +160,7 @@ impl Printer {
             style(" source --> ").blue().bold(),
             style(format!(
                 "{}:{}",
-                missing.source_path.to_string_lossy(),
+                mismatch.source_path.to_string_lossy(),
                 source.number
             ))
             .white()
@@ -154,7 +185,7 @@ impl Printer {
             style(" target --> ").blue().bold(),
             style(format!(
                 "{}:{}",
-                missing.target_path.to_string_lossy(),
+                mismatch.target_path.to_string_lossy(),
                 target.number
             ))
             .white()
@@ -176,7 +207,7 @@ impl Printer {
         Ok(())
     }
 
-    fn print_missing_line(&self, missing: &MissingLines, sources: &[&Line]) -> Result<(), Error> {
+    fn print_missing_line(&self, mismatch: &MismatchLines, sources: &[&Line]) -> Result<(), Error> {
         println!(
             "\n{}{}",
             style("Error").red().bold(),
@@ -189,7 +220,7 @@ impl Printer {
             style(" source --> ").blue().bold(),
             style(format!(
                 "{}:{}",
-                missing.source_path.to_string_lossy(),
+                mismatch.source_path.to_string_lossy(),
                 sources[0].number
             ))
             .white()
@@ -217,12 +248,50 @@ impl Printer {
             style(" hint").yellow().bold(),
             style(format!(
                 ": The lines should be inserted at {}:{}\n",
-                missing.target_path.to_string_lossy(),
+                mismatch.target_path.to_string_lossy(),
                 sources[0].last_both
             ))
             .white()
             .bold()
         );
+        Ok(())
+    }
+
+    fn print_garbage_line(&self, mismatch: &MismatchLines, targets: &[&Line]) -> Result<(), Error> {
+        println!(
+            "\n{}{}",
+            style("Error").red().bold(),
+            style(": lines has been removed from the source file")
+                .white()
+                .bold()
+        );
+        println!(
+            "{}{}",
+            style(" target --> ").blue().bold(),
+            style(format!(
+                "{}:{}",
+                mismatch.target_path.to_string_lossy(),
+                targets[0].number
+            ))
+            .white()
+        );
+
+        let mut max_width = 0;
+        for target in targets {
+            let number = format!("{}", target.number);
+            max_width = std::cmp::max(number.len(), max_width);
+        }
+        let number_space = " ".repeat(max_width);
+
+        println!("{}", style(format!("{} |", number_space)).blue().bold());
+        for target in targets {
+            println!(
+                "{}{}",
+                style(format!("{} | ", target.number)).blue().bold(),
+                style(&target.content).white(),
+            );
+        }
+        println!("{}", style(format!("{} |", number_space)).blue().bold());
         Ok(())
     }
 }
