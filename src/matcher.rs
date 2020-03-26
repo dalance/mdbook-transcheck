@@ -330,7 +330,7 @@ mod test {
         ccc
             "##;
 
-        let ret = Matcher::get_mismatch_lines(source, target);
+        let (ret, _) = Matcher::get_mismatch_lines(source, target);
         assert_eq!(ret.len(), 0);
     }
 
@@ -349,7 +349,7 @@ mod test {
         ccc
             "##;
 
-        let ret = Matcher::get_mismatch_lines(source, target);
+        let (ret, _) = Matcher::get_mismatch_lines(source, target);
         assert_eq!(ret.len(), 1);
         assert_eq!(ret[0].0.len(), 1);
         assert_eq!(ret[0].0[0].number, 3);
@@ -370,7 +370,7 @@ mod test {
             code_comment_header: String::from("# "),
             similar_threshold: 0.5,
         };
-        let mut ret = matcher
+        let (mut ret, _) = matcher
             .check_dir(
                 format!("{}/testcase/original", std::env!("CARGO_MANIFEST_DIR")),
                 format!("{}/testcase/translated", std::env!("CARGO_MANIFEST_DIR")),
