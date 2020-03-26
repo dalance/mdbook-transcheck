@@ -9,7 +9,26 @@ fn default_similar_threshold() -> f64 {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
+    #[serde(default)]
+    pub matcher: ConfigMatcher,
+    #[serde(default)]
+    pub linter: ConfigLinter,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            matcher: ConfigMatcher::default(),
+            linter: ConfigLinter::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigMatcher {
     #[serde(default)]
     pub enable_code_comment_tweak: bool,
     #[serde(default = "default_code_comment_header")]
@@ -18,12 +37,33 @@ pub struct Config {
     pub similar_threshold: f64,
 }
 
-impl Default for Config {
+impl Default for ConfigMatcher {
     fn default() -> Self {
-        Config {
+        ConfigMatcher {
             enable_code_comment_tweak: false,
             code_comment_header: String::from("# "),
             similar_threshold: 0.5,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigLinter {
+    #[serde(default)]
+    pub enable_emphasis_check: bool,
+    #[serde(default)]
+    pub enable_half_paren_check: bool,
+    #[serde(default)]
+    pub enable_full_paren_check: bool,
+}
+
+impl Default for ConfigLinter {
+    fn default() -> Self {
+        ConfigLinter {
+            enable_emphasis_check: false,
+            enable_half_paren_check: false,
+            enable_full_paren_check: false,
         }
     }
 }

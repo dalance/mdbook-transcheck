@@ -1,11 +1,13 @@
 mod config;
 mod fixer;
+mod linter;
 mod matcher;
 mod printer;
 mod util;
 
 use crate::config::Config;
 use crate::fixer::Fixer;
+use crate::linter::Linter;
 use crate::matcher::Matcher;
 use crate::printer::Printer;
 use anyhow::{Context, Error};
@@ -37,6 +39,10 @@ pub struct Opt {
     /// Apply auto fix
     #[structopt(long = "fix")]
     pub fix: bool,
+
+    /// Lint check
+    #[structopt(long = "lint")]
+    pub lint: bool,
 
     /// Prints verbose message
     #[structopt(short = "v", long = "verbose")]
@@ -103,24 +109,35 @@ fn run() -> Result<bool, Error> {
     };
 
     let matcher = Matcher {
-        enable_code_comment_tweak: config.enable_code_comment_tweak,
-        code_comment_header: config.code_comment_header,
-        similar_threshold: config.similar_threshold,
+        enable_code_comment_tweak: config.matcher.enable_code_comment_tweak,
+        code_comment_header: config.matcher.code_comment_header,
+        similar_threshold: config.matcher.similar_threshold,
     };
 
-    let mismatches = matcher.check_dir(&opt.source, &opt.target)?;
+    let linter = Linter {
+        enable_emphasis_check: config.linter.enable_emphasis_check,
+        enable_half_paren_check: config.linter.enable_half_paren_check,
+        enable_full_paren_check: config.linter.enable_full_paren_check,
+    };
+
+    let printer = Printer {
+        verbose: opt.verbose,
+    };
+
+    let (mismatches, target_onlys) = matcher.check_dir(&opt.source, &opt.target)?;
 
     let success = if opt.fix {
         let fixer = Fixer {
             dry_run: opt.dry_run,
         };
         fixer.fix(&mismatches)?
+    } else if opt.lint {
+        let lint_errors = linter.check(target_onlys)?;
+        printer.print_lint(&lint_errors)?
     } else {
-        let printer = Printer {
-            verbose: opt.verbose,
-        };
-        printer.print(&mismatches)?
+        printer.print_mismatch(&mismatches)?
     };
+
     Ok(success)
 }
 

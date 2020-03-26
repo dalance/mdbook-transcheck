@@ -1,3 +1,4 @@
+use crate::linter::{LintError, LintErrorKind};
 use crate::matcher::{Line, Mismatch, MismatchLines, MissingFile};
 use crate::util::{combine_line, CombinedLine};
 use anyhow::Error;
@@ -8,22 +9,31 @@ pub struct Printer {
 }
 
 impl Printer {
-    pub fn print(&self, mismatches: &[Mismatch]) -> Result<bool, Error> {
+    pub fn print_mismatch(&self, mismatches: &[Mismatch]) -> Result<bool, Error> {
         let mut ret = true;
         for mismatch in mismatches {
             match mismatch {
                 Mismatch::MissingFile(x) => {
-                    ret = ret & self.print_file(x)?;
+                    ret &= self.print_missing_file(x)?;
                 }
                 Mismatch::MismatchLines(x) => {
-                    ret = ret & self.print_lines(x)?;
+                    ret &= self.print_mismatch_lines(x)?;
                 }
             }
         }
         Ok(ret)
     }
 
-    fn print_file(&self, missing: &MissingFile) -> Result<bool, Error> {
+    pub fn print_lint(&self, lint_errors: &[LintError]) -> Result<bool, Error> {
+        let mut ret = true;
+        for error in lint_errors {
+            self.print_lint_error(error);
+            ret = false;
+        }
+        Ok(ret)
+    }
+
+    fn print_missing_file(&self, missing: &MissingFile) -> Result<bool, Error> {
         println!(
             "\n{}{}",
             style("Error").red().bold(),
@@ -40,7 +50,7 @@ impl Printer {
         Ok(false)
     }
 
-    fn print_lines(&self, mismatch: &MismatchLines) -> Result<bool, Error> {
+    fn print_mismatch_lines(&self, mismatch: &MismatchLines) -> Result<bool, Error> {
         if mismatch.lines.is_empty() {
             Ok(true)
         } else {
@@ -232,5 +242,54 @@ impl Printer {
         }
         println!("{}", style(format!("{} |", number_space)).blue().bold());
         Ok(())
+    }
+
+    fn print_lint_error(&self, error: &LintError) {
+        let message = match error.kind {
+            LintErrorKind::EmphasisWithoutSpace => "emphasis must have spaces before and after it",
+            LintErrorKind::EmphasisMismatch => "emphasis token is mismatched",
+            LintErrorKind::HalfParenWithNonAscii => "non-ascii string must have full-width paren",
+            LintErrorKind::FullParenWithoutNonAscii => "ascii string must have half-width paren",
+        };
+
+        println!(
+            "\n{}{}",
+            style("Error").red().bold(),
+            style(format!(": {}", message)).white().bold()
+        );
+        println!(
+            "{}{}",
+            style(" target --> ").blue().bold(),
+            style(format!(
+                "{}:{}",
+                error.path.to_string_lossy(),
+                error.line.number
+            ))
+            .white()
+        );
+
+        let number = format!("{}", error.line.number);
+        let number_space = " ".repeat(number.len());
+
+        let before_mark =
+            console::measure_text_width(&format!("{}", &error.line.content[..error.start]));
+        let mark = console::measure_text_width(&format!(
+            "{}",
+            &error.line.content[error.start..error.end]
+        ));
+
+        println!("{}", style(format!("{} |", number_space)).blue().bold());
+        println!(
+            "{}{}",
+            style(format!("{} | ", number)).blue().bold(),
+            style(&error.line.content).white(),
+        );
+        println!(
+            "{}{}{}",
+            style(format!("{} | ", number_space)).blue().bold(),
+            " ".repeat(before_mark),
+            style("^".repeat(mark)).yellow().bold(),
+        );
+        println!("{}", style(format!("{} |", number_space)).blue().bold());
     }
 }

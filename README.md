@@ -31,20 +31,43 @@ The following command applies the differences between `src` and `tgt` to `tgt`.
 $ mdbook-transcheck --fix src tgt
 ```
 
+## Lint
+
+The following command checks translated texts of `tgt` .
+
+```console
+$ mdbook-transcheck --lint src tgt
+```
+
 # Configuration
 
 The configuration file is `transcheck.toml`, which is put at the repository root.
 
 ```toml
+[matcher]
 enable_code_comment_tweak = true
 code_comment_header = "# "
+[linter]
+enable_emphasis_check = true
+enable_half_paren_check = true
+enable_full_paren_check = true
 ```
+
+## `[matcher]` section
 
 | Key                       | Value       | Default | Description                                                                                                                     |
 | ------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | enable_code_comment_tweak | true, false | false   | Match code comment without `code_comment_header`                                                                                |
 | code_comment_header       | String      | `"# "`  |                                                                                                                                 |
 | similar_threshold         | Float       | 0.5     | If the ratio which the original and translated lines are matched exceeds `similar_threshold`, the line is judged as *modified*. |
+
+## `[linter]` section
+
+| Key                     | Value       | Default | Description                                                             |
+| ----------------------- | ----------- | ------- | ----------------------------------------------------------------------- |
+| enable_emphasis_check   | true, false | false   | Check wether emphasis (`*..*`/`**..**`) has spaces before and after it. |
+| enable_half_paren_check | true, false | false   | Check wether half-width paren (`()`) has ascii charactors only.         |
+| enable_full_paren_check | true, false | false   | Check wether full-width paren (`（）`) has non-ascii charactors.        |
 
 # Example
 

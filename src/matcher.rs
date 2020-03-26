@@ -57,6 +57,12 @@ pub enum Mismatch {
 }
 
 #[derive(Clone, Debug)]
+pub struct TargetOnly {
+    pub target_path: PathBuf,
+    pub lines: Vec<Line>,
+}
+
+#[derive(Clone, Debug)]
 pub struct Matcher {
     pub enable_code_comment_tweak: bool,
     pub code_comment_header: String,
@@ -64,8 +70,13 @@ pub struct Matcher {
 }
 
 impl Matcher {
-    pub fn check_dir<T: AsRef<Path>>(&self, source: T, target: T) -> Result<Vec<Mismatch>, Error> {
-        let mut ret = Vec::new();
+    pub fn check_dir<T: AsRef<Path>>(
+        &self,
+        source: T,
+        target: T,
+    ) -> Result<(Vec<Mismatch>, Vec<TargetOnly>), Error> {
+        let mut mismatches = Vec::new();
+        let mut target_onlys = Vec::new();
         let source = source.as_ref();
         for entry in WalkDir::new(&source) {
             let source_path = entry
@@ -75,24 +86,33 @@ impl Matcher {
             target_path.push(&target);
             target_path.push(source_path.strip_prefix(&source)?);
             if source_path.is_file() {
+                let source_path = PathBuf::from(&source_path);
+                let target_path = PathBuf::from(&target_path);
                 if !target_path.exists() {
-                    let source_path = PathBuf::from(&source_path);
-                    let target_path = PathBuf::from(&target_path);
                     let mismatch = Mismatch::MissingFile(MissingFile {
                         source_path,
                         target_path,
                     });
-                    ret.push(mismatch);
+                    mismatches.push(mismatch);
                 } else {
-                    let mismatch_lines = self.check_file(&source_path, &target_path)?;
-                    ret.push(Mismatch::MismatchLines(mismatch_lines));
+                    let (mismatch_lines, target_only) =
+                        self.check_file(&source_path, &target_path)?;
+                    mismatches.push(Mismatch::MismatchLines(mismatch_lines));
+                    target_onlys.push(TargetOnly {
+                        target_path,
+                        lines: target_only,
+                    });
                 }
             }
         }
-        Ok(ret)
+        Ok((mismatches, target_onlys))
     }
 
-    pub fn check_file<T: AsRef<Path>>(&self, source: T, target: T) -> Result<MismatchLines, Error> {
+    pub fn check_file<T: AsRef<Path>>(
+        &self,
+        source: T,
+        target: T,
+    ) -> Result<(MismatchLines, Vec<Line>), Error> {
         let source_path = source.as_ref();
         let target_path = target.as_ref();
 
@@ -115,7 +135,7 @@ impl Matcher {
 
         let target = self.revert_code_comment(&target);
 
-        let mismatch_lines = Matcher::get_mismatch_lines(&source, &target);
+        let (mismatch_lines, right_only_lines) = Matcher::get_mismatch_lines(&source, &target);
 
         let mut lines = Vec::new();
         for (lefts, rights) in mismatch_lines {
@@ -146,11 +166,13 @@ impl Matcher {
             }
         }
 
-        Ok(MismatchLines {
+        let mismatch_lines = MismatchLines {
             source_path: PathBuf::from(source_path),
             target_path: PathBuf::from(target_path),
             lines,
-        })
+        };
+
+        Ok((mismatch_lines, right_only_lines))
     }
 
     fn revert_code_comment<'a>(&self, target: &'a str) -> Cow<'a, str> {
@@ -178,7 +200,7 @@ impl Matcher {
         }
     }
 
-    fn get_mismatch_lines(source: &str, target: &str) -> Vec<(Vec<Line>, Vec<Line>)> {
+    fn get_mismatch_lines(source: &str, target: &str) -> (Vec<(Vec<Line>, Vec<Line>)>, Vec<Line>) {
         let mut source_line = 0;
         let mut target_line = 0;
         let mut last_both_source_line = 0;
@@ -187,6 +209,7 @@ impl Matcher {
         let mut left_lines = Vec::new();
         let mut right_lines = Vec::new();
         let mut mismatch_lines = Vec::new();
+        let mut right_only_lines = Vec::new();
         for d in diff::lines(&source, &target) {
             match d {
                 diff::Result::Both(_, _) => {
@@ -229,6 +252,7 @@ impl Matcher {
                         last_both: last_both_source_line,
                         comment: target_comment,
                     };
+                    right_only_lines.push(line.clone());
                     right_lines.push(line);
 
                     if x.trim().starts_with("<!--") {
@@ -237,6 +261,7 @@ impl Matcher {
                 }
             }
         }
+
         if !left_lines.is_empty() {
             mismatch_lines.push((left_lines.clone(), right_lines.clone()));
         } else if right_lines.iter().any(|x: &Line| x.comment) {
@@ -247,7 +272,8 @@ impl Matcher {
                 .collect();
             mismatch_lines.push((left_lines.clone(), right_lines));
         }
-        mismatch_lines
+
+        (mismatch_lines, right_only_lines)
     }
 
     fn get_similar_line<'a, 'b>(
