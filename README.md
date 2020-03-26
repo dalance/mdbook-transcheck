@@ -33,7 +33,7 @@ $ mdbook-transcheck --fix src tgt
 
 ## Lint
 
-The following command checks translated texts of `tgt` .
+The following command checks whether translated texts satisfy lint rules.
 
 ```console
 $ mdbook-transcheck --lint src tgt
