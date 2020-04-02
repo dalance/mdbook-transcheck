@@ -76,7 +76,21 @@ impl Fixer {
                 CombinedLine::Garbage(x) => x[0].number,
             });
 
-            let mut iter = lines.iter().peekable();
+            let mut modified_lines = Vec::new();
+            let mut missing_lines = Vec::new();
+            let mut garbage_lines = Vec::new();
+            for line in lines {
+                match line {
+                    CombinedLine::Modified(x) => modified_lines.push(x),
+                    CombinedLine::Missing(x) => missing_lines.push(x),
+                    CombinedLine::Garbage(x) => garbage_lines.push(x),
+                }
+            }
+
+            let mut modified_iter = modified_lines.iter().peekable();
+            let mut missing_iter = missing_lines.iter().peekable();
+            let mut grabage_iter = garbage_lines.iter().peekable();
+
             let mut modified = String::new();
             let mut removed_numbers = Vec::new();
 
@@ -86,51 +100,54 @@ impl Fixer {
                     continue;
                 }
 
-                match iter.peek() {
-                    Some(CombinedLine::Modified(x)) => {
-                        if x.1.number == number {
-                            self.log(
-                                "Modify",
-                                &format!("{}:{}", target_path.to_string_lossy(), number),
-                            )?;
-                            modified.push_str(&format!("{}\n", x.0.content));
-                            iter.next();
-                        } else {
+                let mut line_pushed = false;
+
+                if let Some(x) = modified_iter.peek() {
+                    if x.1.number == number {
+                        self.log(
+                            "Modify",
+                            &format!("{}:{}", target_path.to_string_lossy(), number),
+                        )?;
+                        modified.push_str(&format!("{}\n", x.0.content));
+                        line_pushed = true;
+                        modified_iter.next();
+                    }
+                }
+
+                if let Some(x) = missing_iter.peek() {
+                    if x[0].last_both == number {
+                        self.log(
+                            "Insert",
+                            &format!("{}:{}", target_path.to_string_lossy(), number),
+                        )?;
+                        if !line_pushed {
                             modified.push_str(&format!("{}\n", line));
+                            line_pushed = true;
                         }
-                    }
-                    Some(CombinedLine::Missing(x)) => {
-                        if x[0].last_both == number {
-                            self.log(
-                                "Insert",
-                                &format!("{}:{}", target_path.to_string_lossy(), number),
-                            )?;
-                            modified.push_str(&format!("{}\n", line));
-                            for line in x {
-                                modified.push_str(&format!("{}\n", line.content));
-                            }
-                            iter.next();
-                        } else {
-                            modified.push_str(&format!("{}\n", line));
+                        for line in *x {
+                            modified.push_str(&format!("{}\n", line.content));
                         }
+                        missing_iter.next();
                     }
-                    Some(CombinedLine::Garbage(x)) => {
-                        if x[0].number == number {
-                            self.log(
-                                "Remove",
-                                &format!("{}:{}", target_path.to_string_lossy(), number),
-                            )?;
-                            for line in &x[1..] {
-                                removed_numbers.push(line.number);
-                            }
-                            iter.next();
-                        } else {
-                            modified.push_str(&format!("{}\n", line));
+                }
+
+                if let Some(x) = grabage_iter.peek() {
+                    if x[0].number == number {
+                        self.log(
+                            "Remove",
+                            &format!("{}:{}", target_path.to_string_lossy(), number),
+                        )?;
+                        // line remove
+                        line_pushed = true;
+                        for line in &x[1..] {
+                            removed_numbers.push(line.number);
                         }
+                        grabage_iter.next();
                     }
-                    None => {
-                        modified.push_str(&format!("{}\n", line));
-                    }
+                }
+
+                if !line_pushed {
+                    modified.push_str(&format!("{}\n", line));
                 }
             }
 

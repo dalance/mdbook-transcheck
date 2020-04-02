@@ -184,9 +184,16 @@ impl Printer {
 
         println!("{}", style(format!("{} |", number_space)).blue().bold());
         for source in sources {
+            let number = format!("{}", source.number);
             println!(
                 "{}{}",
-                style(format!("{} | ", source.number)).blue().bold(),
+                style(format!(
+                    "{}{} | ",
+                    number,
+                    " ".repeat(max_width - number.len())
+                ))
+                .blue()
+                .bold(),
                 style(&source.content).white(),
             );
         }
@@ -234,9 +241,16 @@ impl Printer {
 
         println!("{}", style(format!("{} |", number_space)).blue().bold());
         for target in targets {
+            let number = format!("{}", target.number);
             println!(
                 "{}{}",
-                style(format!("{} | ", target.number)).blue().bold(),
+                style(format!(
+                    "{}{} | ",
+                    number,
+                    " ".repeat(max_width - number.len())
+                ))
+                .blue()
+                .bold(),
                 style(&target.content).white(),
             );
         }

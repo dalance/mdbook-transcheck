@@ -11,7 +11,8 @@ pub struct Line {
     pub number: usize,
     pub content: String,
     pub last_both: usize,
-    pub comment: bool,
+    pub html_comment: bool,
+    pub code_not_comment: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -138,29 +139,37 @@ impl Matcher {
         let (mismatch_lines, right_only_lines) = Matcher::get_mismatch_lines(&source, &target);
 
         let mut lines = Vec::new();
+        let mut last_modified_line = None;
         for (lefts, rights) in mismatch_lines {
             let mut rights = rights.as_slice();
             for left in &lefts {
                 let (similar_line, r, garbage) = self.get_similar_line(left, rights);
                 for g in garbage {
-                    if g.comment {
+                    if g.html_comment {
+                        lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
+                    } else if g.code_not_comment {
                         lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
                     }
                 }
                 rights = r;
                 if let Some(similar_line) = similar_line {
+                    last_modified_line = Some(similar_line.number);
                     lines.push(MismatchLine::Modified(ModifiedLine {
                         source: left.clone(),
                         target: similar_line,
                     }));
                 } else {
-                    lines.push(MismatchLine::Missing(MissingLine {
-                        source: left.clone(),
-                    }));
+                    let mut left = left.clone();
+                    if let Some(x) = last_modified_line {
+                        left.last_both = std::cmp::max(left.last_both, x);
+                    }
+                    lines.push(MismatchLine::Missing(MissingLine { source: left }));
                 }
             }
             for g in rights {
-                if g.comment {
+                if g.html_comment {
+                    lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
+                } else if g.code_not_comment {
                     lines.push(MismatchLine::Garbage(GarbageLine { target: g.clone() }));
                 }
             }
@@ -180,9 +189,9 @@ impl Matcher {
             let mut ret = String::new();
             let mut code_block = false;
             for line in target.lines() {
-                if line.trim().starts_with("```rust") {
+                if line.trim().starts_with("```") && !code_block {
                     code_block = true;
-                } else if line.trim().starts_with("```") {
+                } else if line.trim().ends_with("```") && code_block {
                     code_block = false;
                 }
 
@@ -206,29 +215,38 @@ impl Matcher {
         let mut last_both_source_line = 0;
         let mut last_both_target_line = 0;
         let mut target_comment = false;
+        let mut target_code = false;
         let mut left_lines = Vec::new();
         let mut right_lines = Vec::new();
         let mut mismatch_lines = Vec::new();
         let mut right_only_lines = Vec::new();
         for d in diff::lines(&source, &target) {
             match d {
-                diff::Result::Both(_, _) => {
+                diff::Result::Both(x, _) => {
+                    if x.trim().ends_with("```") && target_code {
+                        target_code = false;
+                    }
+
                     source_line += 1;
                     target_line += 1;
                     last_both_source_line = source_line;
                     last_both_target_line = target_line;
                     if !left_lines.is_empty() {
                         mismatch_lines.push((left_lines.clone(), right_lines.clone()));
-                    } else if right_lines.iter().any(|x: &Line| x.comment) {
+                    } else if right_lines.iter().any(|x: &Line| x.html_comment) {
                         let right_lines: Vec<_> = right_lines
                             .iter()
-                            .filter(|x| x.comment)
+                            .filter(|x| x.html_comment)
                             .map(|x| x.clone())
                             .collect();
                         mismatch_lines.push((left_lines.clone(), right_lines));
                     }
                     left_lines.clear();
                     right_lines.clear();
+
+                    if x.trim().starts_with("```") && !target_code {
+                        target_code = true;
+                    }
                 }
                 diff::Result::Left(x) => {
                     source_line += 1;
@@ -236,7 +254,8 @@ impl Matcher {
                         number: source_line,
                         content: String::from(x),
                         last_both: last_both_target_line,
-                        comment: false,
+                        html_comment: false,
+                        code_not_comment: false,
                     };
                     left_lines.push(line);
                 }
@@ -244,13 +263,17 @@ impl Matcher {
                     if x.trim().starts_with("-->") {
                         target_comment = false;
                     }
+                    if x.trim().ends_with("```") {
+                        target_code = false;
+                    }
 
                     target_line += 1;
                     let line = Line {
                         number: target_line,
                         content: String::from(x),
                         last_both: last_both_source_line,
-                        comment: target_comment,
+                        html_comment: target_comment,
+                        code_not_comment: target_code && !x.contains("//"),
                     };
                     right_only_lines.push(line.clone());
                     right_lines.push(line);
@@ -258,16 +281,19 @@ impl Matcher {
                     if x.trim().starts_with("<!--") {
                         target_comment = true;
                     }
+                    if x.trim().starts_with("```rust") {
+                        target_code = true;
+                    }
                 }
             }
         }
 
         if !left_lines.is_empty() {
             mismatch_lines.push((left_lines.clone(), right_lines.clone()));
-        } else if right_lines.iter().any(|x: &Line| x.comment) {
+        } else if right_lines.iter().any(|x: &Line| x.html_comment) {
             let right_lines: Vec<_> = right_lines
                 .iter()
-                .filter(|x| x.comment)
+                .filter(|x| x.html_comment)
                 .map(|x| x.clone())
                 .collect();
             mismatch_lines.push((left_lines.clone(), right_lines));
@@ -285,7 +311,7 @@ impl Matcher {
         let mut similar_line = None;
         let mut index = None;
         for (i, t) in target.iter().enumerate() {
-            let similarity = diff::chars(&source.content, &t.content)
+            let common_chars = diff::chars(&source.content, &t.content)
                 .iter()
                 .filter(|x| {
                     if let diff::Result::Both(_, _) = x {
@@ -295,8 +321,13 @@ impl Matcher {
                     }
                 })
                 .count();
-            let similarity = similarity as f64 / source.content.len() as f64;
-            if similarity > max_similarity && similarity > self.similar_threshold {
+            let source_similarity = common_chars as f64 / source.content.len() as f64;
+            let target_similarity = common_chars as f64 / t.content.len() as f64;
+            let similarity = source_similarity + target_similarity;
+            if similarity > max_similarity
+                && source_similarity > self.similar_threshold
+                && target_similarity > self.similar_threshold
+            {
                 max_similarity = similarity;
                 similar_line = Some(t.clone());
                 index = Some(i);

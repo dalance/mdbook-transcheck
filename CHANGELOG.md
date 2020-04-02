@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.0...Unreleased) - ReleaseDate
 
+* [Added] garbage line detection in code block
+* [Fixed] wrong insert position
+* [Fixed] wrong similar line detection of show line
+
 ## [v0.2.0](https://github.com/dalance/mdbook-transcheck/compare/v0.1.4...v0.2.0) - 2020-03-26
 
 * [Added] --lint option
