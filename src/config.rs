@@ -4,6 +4,14 @@ fn default_code_comment_header() -> String {
     String::from("# ")
 }
 
+fn default_markdown_comment_begin() -> String {
+    String::from("(((")
+}
+
+fn default_markdown_comment_end() -> String {
+    String::from(")))")
+}
+
 fn default_similar_threshold() -> f64 {
     0.5
 }
@@ -33,6 +41,12 @@ pub struct ConfigMatcher {
     pub enable_code_comment_tweak: bool,
     #[serde(default = "default_code_comment_header")]
     pub code_comment_header: String,
+    #[serde(default)]
+    pub keep_markdown_comment: bool,
+    #[serde(default = "default_markdown_comment_begin")]
+    pub markdown_comment_begin: String,
+    #[serde(default = "default_markdown_comment_end")]
+    pub markdown_comment_end: String,
     #[serde(default = "default_similar_threshold")]
     pub similar_threshold: f64,
 }
@@ -42,6 +56,9 @@ impl Default for ConfigMatcher {
         ConfigMatcher {
             enable_code_comment_tweak: false,
             code_comment_header: String::from("# "),
+            keep_markdown_comment: false,
+            markdown_comment_begin: String::from("((("),
+            markdown_comment_end: String::from(")))"),
             similar_threshold: 0.5,
         }
     }

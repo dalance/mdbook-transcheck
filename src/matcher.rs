@@ -1,4 +1,4 @@
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::BufReader;
@@ -67,6 +67,9 @@ pub struct TargetOnly {
 pub struct Matcher {
     pub enable_code_comment_tweak: bool,
     pub code_comment_header: String,
+    pub keep_markdown_comment: bool,
+    pub markdown_comment_begin: String,
+    pub markdown_comment_end: String,
     pub similar_threshold: f64,
 }
 
@@ -134,6 +137,7 @@ impl Matcher {
             .read_to_string(&mut target)
             .with_context(|| format!("Failed to read '{}'", target_path.to_string_lossy()))?;
 
+        let source = self.remove_markdown_comment(&source)?;
         let target = self.revert_code_comment(&target);
 
         let (mismatch_lines, right_only_lines) = Matcher::get_mismatch_lines(&source, &target);
@@ -206,6 +210,30 @@ impl Matcher {
             ret.into()
         } else {
             target.into()
+        }
+    }
+
+    fn remove_markdown_comment<'a>(&self, source: &'a str) -> Result<Cow<'a, str>, Error> {
+        if source.find("<!--").is_some() {
+            let mut ret = String::new();
+            let mut pos = 0;
+            while let Some(i) = source[pos..].find("<!--") {
+                ret.push_str(&source[pos..pos + i]);
+                if let Some(j) = source[pos..].find("-->") {
+                    if self.keep_markdown_comment {
+                        ret.push_str(&self.markdown_comment_begin);
+                        ret.push_str(&source[pos + i + 4..pos + j]);
+                        ret.push_str(&self.markdown_comment_end);
+                    }
+                    pos += j + 3;
+                } else {
+                    bail!("Failed to parse markdown comment");
+                }
+            }
+            ret.push_str(&source[pos..]);
+            Ok(ret.into())
+        } else {
+            Ok(source.into())
         }
     }
 
@@ -399,6 +427,9 @@ mod test {
         let matcher = Matcher {
             enable_code_comment_tweak: true,
             code_comment_header: String::from("# "),
+            keep_markdown_comment: false,
+            markdown_comment_begin: String::from("((("),
+            markdown_comment_end: String::from(")))"),
             similar_threshold: 0.5,
         };
         let (mut ret, _) = matcher
@@ -411,15 +442,59 @@ mod test {
             Mismatch::MismatchLines(x) => x.source_path.clone(),
             Mismatch::MissingFile(x) => x.source_path.clone(),
         });
-        assert_eq!(ret.len(), 3);
+        assert_eq!(ret.len(), 4);
         assert!(
-            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
+            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "comment.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
+            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[2], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
+            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
+        );
+        assert!(
+            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
+        );
+    }
+
+    #[test]
+    fn test_check_dir_keep_comment() {
+        let matcher = Matcher {
+            enable_code_comment_tweak: true,
+            code_comment_header: String::from("# "),
+            keep_markdown_comment: true,
+            markdown_comment_begin: String::from("((("),
+            markdown_comment_end: String::from(")))"),
+            similar_threshold: 0.5,
+        };
+        let (mut ret, _) = matcher
+            .check_dir(
+                format!(
+                    "{}/testcase/original_keep_comment",
+                    std::env!("CARGO_MANIFEST_DIR")
+                ),
+                format!(
+                    "{}/testcase/translated_keep_comment",
+                    std::env!("CARGO_MANIFEST_DIR")
+                ),
+            )
+            .unwrap();
+        ret.sort_by_key(|x| match x {
+            Mismatch::MismatchLines(x) => x.source_path.clone(),
+            Mismatch::MissingFile(x) => x.source_path.clone(),
+        });
+        assert_eq!(ret.len(), 4);
+        assert!(
+            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "comment.md" && x.lines.is_empty())
+        );
+        assert!(
+            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
+        );
+        assert!(
+            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
+        );
+        assert!(
+            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
         );
     }
 }

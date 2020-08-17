@@ -59,6 +59,9 @@ enable_full_paren_check = true
 | ------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | enable_code_comment_tweak | true, false | false   | Match code comment without `code_comment_header`                                                                                |
 | code_comment_header       | String      | `"# "`  |                                                                                                                                 |
+| keep_markdown_comment     | true, false | false   | Keep Markdown comment in original                                                                                               |
+| markdown_comment_begin    | String      | `(((`   |                                                                                                                                 |
+| markdown_comment_end      | String      | `)))`   |                                                                                                                                 |
 | similar_threshold         | Float       | 0.5     | If the ratio which the original and translated lines are matched exceeds `similar_threshold`, the line is judged as *modified*. |
 
 ## `[linter]` section
@@ -148,6 +151,62 @@ Peach -->
 オレンジ
 桃
 ```
+
+## Markdown comment
+
+If the original text has markdown commets, the commets should be removed in the translated text because nested comment is not supported.
+The differences by removing the comments are ignored by default.
+
+* original
+
+```markdown
+Apple <!-- ignore -->
+Or<!-- ignore -->ange
+<!-- ignore -->Peach
+```
+
+* translated
+
+```markdown
+<!--
+Apple 
+Orange
+Peach
+-->
+りんご
+オレンジ
+桃
+```
+
+If you want to keep the comments, `keep_markdown_comment`, `markdown_comment_begin` and `markdown_comment_end` can be used like below:
+
+```toml
+keep_markdown_comment = true
+markdown_comment_begin = "((("
+markdown_comment_end = ")))"
+```
+
+* original
+
+```markdown
+Apple <!-- ignore -->
+Or<!-- ignore -->ange
+<!-- ignore -->Peach
+```
+
+* translated
+
+```markdown
+<!--
+Apple ((( ignore )))
+Or((( ignore )))ange
+((( ignore )))Peach
+-->
+りんご
+オレンジ
+桃
+```
+
 
 ## Code block
 

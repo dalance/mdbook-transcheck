@@ -111,6 +111,9 @@ fn run() -> Result<bool, Error> {
     let matcher = Matcher {
         enable_code_comment_tweak: config.matcher.enable_code_comment_tweak,
         code_comment_header: config.matcher.code_comment_header,
+        keep_markdown_comment: config.matcher.keep_markdown_comment,
+        markdown_comment_begin: config.matcher.markdown_comment_begin,
+        markdown_comment_end: config.matcher.markdown_comment_end,
         similar_threshold: config.matcher.similar_threshold,
     };
 
