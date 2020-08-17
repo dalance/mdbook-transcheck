@@ -10,8 +10,8 @@ use crate::fixer::Fixer;
 use crate::linter::Linter;
 use crate::matcher::Matcher;
 use crate::printer::Printer;
+use crate::util::print_error;
 use anyhow::{Context, Error};
-use console::style;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -70,21 +70,7 @@ fn main() {
             }
         }
         Err(x) => {
-            let mut cause = x.chain();
-            eprintln!(
-                "{}{}",
-                style("Error").red().bold(),
-                style(format!(": {}", cause.next().unwrap())).white().bold()
-            );
-
-            for x in cause {
-                let _ = eprintln!(
-                    "  {}{}",
-                    console::style("caused by: ").white().bold(),
-                    console::style(x).white()
-                );
-            }
-
+            print_error(x);
             process::exit(1);
         }
     }

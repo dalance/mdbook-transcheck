@@ -1,4 +1,6 @@
 use crate::matcher::{Line, MismatchLine, MismatchLines};
+use anyhow::Error;
+use console::style;
 
 #[derive(Debug)]
 pub enum CombinedLine<'a> {
@@ -66,4 +68,38 @@ pub fn combine_line<'a>(mismatch: &'a MismatchLines) -> Vec<CombinedLine<'a>> {
     }
 
     lines
+}
+
+pub fn print_error(x: Error) {
+    let mut cause = x.chain();
+    eprintln!(
+        "{}{}",
+        style("Error").red().bold(),
+        style(format!(": {}", cause.next().unwrap())).white().bold()
+    );
+
+    for x in cause {
+        let _ = eprintln!(
+            "  {}{}",
+            console::style("caused by: ").white().bold(),
+            console::style(x).white()
+        );
+    }
+}
+
+pub fn print_warning(x: Error) {
+    let mut cause = x.chain();
+    eprintln!(
+        "{}{}",
+        style("Warning").yellow().bold(),
+        style(format!(": {}", cause.next().unwrap())).white().bold()
+    );
+
+    for x in cause {
+        let _ = eprintln!(
+            "  {}{}",
+            console::style("caused by: ").white().bold(),
+            console::style(x).white()
+        );
+    }
 }

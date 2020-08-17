@@ -1,3 +1,4 @@
+use crate::util::print_warning;
 use anyhow::{bail, Context, Error};
 use std::borrow::Cow;
 use std::fs::File;
@@ -99,8 +100,14 @@ impl Matcher {
                     });
                     mismatches.push(mismatch);
                 } else {
-                    let (mismatch_lines, target_only) =
-                        self.check_file(&source_path, &target_path)?;
+                    let ret = self.check_file(&source_path, &target_path);
+                    let (mismatch_lines, target_only) = match ret {
+                        Ok(x) => x,
+                        Err(x) => {
+                            print_warning(x);
+                            continue;
+                        }
+                    };
                     mismatches.push(Mismatch::MismatchLines(mismatch_lines));
                     target_onlys.push(TargetOnly {
                         target_path,
