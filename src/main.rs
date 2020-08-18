@@ -113,7 +113,8 @@ fn run() -> Result<bool, Error> {
         verbose: opt.verbose,
     };
 
-    let (mismatches, target_onlys) = matcher.check_dir(&opt.source, &opt.target)?;
+    let excludes: Vec<_> = config.excludes.iter().map(|x| x.into()).collect();
+    let (mismatches, target_onlys) = matcher.check_dir(&opt.source, &opt.target, &excludes)?;
 
     let success = if opt.fix {
         let fixer = Fixer {

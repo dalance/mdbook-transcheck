@@ -75,18 +75,26 @@ pub struct Matcher {
 }
 
 impl Matcher {
-    pub fn check_dir<T: AsRef<Path>>(
+    pub fn check_dir<T: AsRef<Path> + std::fmt::Debug>(
         &self,
         source: T,
         target: T,
+        excludes: &[T],
     ) -> Result<(Vec<Mismatch>, Vec<TargetOnly>), Error> {
         let mut mismatches = Vec::new();
         let mut target_onlys = Vec::new();
         let source = source.as_ref();
-        for entry in WalkDir::new(&source) {
+        'warkdir: for entry in WalkDir::new(&source) {
             let source_path = entry
                 .with_context(|| format!("Failed to enumerate '{}'", source.to_string_lossy()))?
                 .into_path();
+
+            for exclude in excludes {
+                if source_path.starts_with(source.join(exclude)) {
+                    continue 'warkdir;
+                }
+            }
+
             let mut target_path = PathBuf::new();
             target_path.push(&target);
             target_path.push(source_path.strip_prefix(&source)?);
@@ -105,7 +113,7 @@ impl Matcher {
                         Ok(x) => x,
                         Err(x) => {
                             print_warning(x);
-                            continue;
+                            continue 'warkdir;
                         }
                     };
                     mismatches.push(Mismatch::MismatchLines(mismatch_lines));
@@ -443,6 +451,7 @@ mod test {
             .check_dir(
                 format!("{}/testcase/original", std::env!("CARGO_MANIFEST_DIR")),
                 format!("{}/testcase/translated", std::env!("CARGO_MANIFEST_DIR")),
+                &[],
             )
             .unwrap();
         ret.sort_by_key(|x| match x {
@@ -484,6 +493,7 @@ mod test {
                     "{}/testcase/translated_keep_comment",
                     std::env!("CARGO_MANIFEST_DIR")
                 ),
+                &[],
             )
             .unwrap();
         ret.sort_by_key(|x| match x {

@@ -2,6 +2,8 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.3...Unreleased) - ReleaseDate
 
+* [Added] excludes option
+
 ## [v0.2.3](https://github.com/dalance/mdbook-transcheck/compare/v0.2.2...v0.2.3) - 2020-08-18
 
 * [Fixed] skip read failed files

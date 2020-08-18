@@ -44,6 +44,7 @@ $ mdbook-transcheck --lint src tgt
 The configuration file is `transcheck.toml`, which is put at the repository root.
 
 ```toml
+excludes = ["img/"]
 [matcher]
 enable_code_comment_tweak = true
 code_comment_header = "# "
@@ -52,6 +53,12 @@ enable_emphasis_check = true
 enable_half_paren_check = true
 enable_full_paren_check = true
 ```
+
+## root section
+
+| Key      | Value        | Default | Description                                                 |
+| -------- | ------------ | ------- | ----------------------------------------------------------- |
+| excludes | String Array | []      | Exclude paths which are relative path from source directory |
 
 ## `[matcher]` section
 

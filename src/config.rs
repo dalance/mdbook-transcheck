@@ -1,4 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 fn default_code_comment_header() -> String {
     String::from("# ")
@@ -20,6 +21,8 @@ fn default_similar_threshold() -> f64 {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default)]
+    pub excludes: Vec<PathBuf>,
+    #[serde(default)]
     pub matcher: ConfigMatcher,
     #[serde(default)]
     pub linter: ConfigLinter,
@@ -28,6 +31,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
+            excludes: Vec::new(),
             matcher: ConfigMatcher::default(),
             linter: ConfigLinter::default(),
         }
