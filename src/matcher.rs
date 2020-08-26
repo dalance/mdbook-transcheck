@@ -109,18 +109,15 @@ impl Matcher {
                     mismatches.push(mismatch);
                 } else {
                     let ret = self.check_file(&source_path, &target_path);
-                    let (mismatch_lines, target_only) = match ret {
+                    let (mismatch, target_only) = match ret {
                         Ok(x) => x,
                         Err(x) => {
                             print_warning(x);
                             continue 'warkdir;
                         }
                     };
-                    mismatches.push(Mismatch::MismatchLines(mismatch_lines));
-                    target_onlys.push(TargetOnly {
-                        target_path,
-                        lines: target_only,
-                    });
+                    mismatches.push(mismatch);
+                    target_onlys.push(target_only);
                 }
             }
         }
@@ -131,7 +128,7 @@ impl Matcher {
         &self,
         source: T,
         target: T,
-    ) -> Result<(MismatchLines, Vec<Line>), Error> {
+    ) -> Result<(Mismatch, TargetOnly), Error> {
         let source_path = source.as_ref();
         let target_path = target.as_ref();
 
@@ -194,13 +191,18 @@ impl Matcher {
             }
         }
 
-        let mismatch_lines = MismatchLines {
+        let mismatch = Mismatch::MismatchLines(MismatchLines {
             source_path: PathBuf::from(source_path),
             target_path: PathBuf::from(target_path),
             lines,
+        });
+
+        let target_only = TargetOnly {
+            target_path: PathBuf::from(target_path),
+            lines: right_only_lines,
         };
 
-        Ok((mismatch_lines, right_only_lines))
+        Ok((mismatch, target_only))
     }
 
     fn revert_code_comment<'a>(&self, target: &'a str) -> Cow<'a, str> {

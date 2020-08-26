@@ -28,11 +28,11 @@ use structopt::{clap, StructOpt};
 #[structopt(setting(clap::AppSettings::ColoredHelp))]
 #[structopt(setting(clap::AppSettings::DeriveDisplayOrder))]
 pub struct Opt {
-    /// Source directory
+    /// Source directory ( or file if single file mode )
     #[structopt(name = "SOURCE")]
     pub source: PathBuf,
 
-    /// Target directory
+    /// Target directory ( or file if single file mode )
     #[structopt(name = "TARGET")]
     pub target: PathBuf,
 
@@ -51,6 +51,10 @@ pub struct Opt {
     /// Dry run
     #[structopt(long = "dry-run")]
     pub dry_run: bool,
+
+    /// Single file mode
+    #[structopt(short = "1", long = "single")]
+    pub single: bool,
 
     /// Config file
     #[structopt(long = "config", default_value = "transcheck.toml")]
@@ -114,7 +118,12 @@ fn run() -> Result<bool, Error> {
     };
 
     let excludes: Vec<_> = config.excludes.iter().map(|x| x.into()).collect();
-    let (mismatches, target_onlys) = matcher.check_dir(&opt.source, &opt.target, &excludes)?;
+    let (mismatches, target_onlys) = if opt.single {
+        let (mismatch, target_only) = matcher.check_file(&opt.source, &opt.target)?;
+        (vec![mismatch], vec![target_only])
+    } else {
+        matcher.check_dir(&opt.source, &opt.target, &excludes)?
+    };
 
     let success = if opt.fix {
         let fixer = Fixer {

@@ -2,6 +2,7 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.4...Unreleased) - ReleaseDate
 
+* [Added] single option
 * [Fixed] code block detection failure
 
 ## [v0.2.4](https://github.com/dalance/mdbook-transcheck/compare/v0.2.3...v0.2.4) - 2020-08-18
