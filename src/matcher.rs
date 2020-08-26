@@ -266,9 +266,12 @@ impl Matcher {
         for d in diff::lines(&source, &target) {
             match d {
                 diff::Result::Both(x, _) => {
-                    if x.trim().ends_with("```") && target_code {
+                    let end_of_code = if x.trim().ends_with("```") && target_code {
                         target_code = false;
-                    }
+                        true
+                    } else {
+                        false
+                    };
 
                     source_line += 1;
                     target_line += 1;
@@ -287,7 +290,7 @@ impl Matcher {
                     left_lines.clear();
                     right_lines.clear();
 
-                    if x.trim().starts_with("```") && !target_code {
+                    if x.trim().starts_with("```") && !target_code && !end_of_code {
                         target_code = true;
                     }
                 }
@@ -306,9 +309,12 @@ impl Matcher {
                     if x.trim().starts_with("-->") {
                         target_comment = false;
                     }
-                    if x.trim().ends_with("```") {
+                    let end_of_code = if x.trim().ends_with("```") && target_code {
                         target_code = false;
-                    }
+                        true
+                    } else {
+                        false
+                    };
 
                     target_line += 1;
                     let line = Line {
@@ -324,7 +330,7 @@ impl Matcher {
                     if x.trim().starts_with("<!--") {
                         target_comment = true;
                     }
-                    if x.trim().starts_with("```rust") {
+                    if x.trim().starts_with("```") && !target_code && !end_of_code {
                         target_code = true;
                     }
                 }
