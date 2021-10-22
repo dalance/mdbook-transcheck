@@ -8,7 +8,7 @@ categories = ["command-line-utilities"]
 license = "MIT"
 readme = "README.md"
 description = "Checker for translated mdbook"
-edition = "2018"
+edition = "2021"
 exclude = ["testcase/*"]
 
 [package.metadata.release]
