@@ -25,11 +25,11 @@ pre-release-replacements    = [
 
 [dependencies]
 anyhow       = "1"
-console      = "0.10"
+console      = "0.15"
 diff         = "0.1"
 regex        = "1"
 serde        = "1"
 serde_derive = "1"
 structopt    = "0.3"
-toml         = "0.4"
+toml         = "0.5"
 walkdir      = "2"
