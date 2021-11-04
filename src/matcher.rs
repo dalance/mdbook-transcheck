@@ -446,6 +446,23 @@ mod test {
     }
 
     #[test]
+    fn test_keep_original_line() {
+        let source = r##"
+aaa
+            "##;
+        let target = r##"
+<!--
+aaa
+-->
+aaa
+
+            "##;
+
+        let (ret, _) = Matcher::get_mismatch_lines(source, target);
+        assert_eq!(ret.len(), 0);
+    }
+
+    #[test]
     fn test_check_dir() {
         let matcher = Matcher {
             enable_code_comment_tweak: true,
@@ -466,18 +483,21 @@ mod test {
             Mismatch::MismatchLines(x) => x.source_path.clone(),
             Mismatch::MissingFile(x) => x.source_path.clone(),
         });
-        assert_eq!(ret.len(), 4);
+        assert_eq!(ret.len(), 5);
         assert!(
-            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "comment.md" && x.lines.is_empty())
+            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "01_hello.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
+            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "02_comment.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
+            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "03_mismatch_lines.md" && !x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
+            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "04_missing_file.md")
+        );
+        assert!(
+            matches!(&ret[4], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "05_keep_original.md" && x.lines.is_empty())
         );
     }
 
@@ -510,16 +530,16 @@ mod test {
         });
         assert_eq!(ret.len(), 4);
         assert!(
-            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "comment.md" && x.lines.is_empty())
+            matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "01_hello.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "hello.md" && x.lines.is_empty())
+            matches!(&ret[1], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "02_comment.md" && x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "mismatch_lines.md" && !x.lines.is_empty())
+            matches!(&ret[2], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "03_mismatch_lines.md" && !x.lines.is_empty())
         );
         assert!(
-            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "missing_file.md")
+            matches!(&ret[3], Mismatch::MissingFile(x) if x.source_path.file_name().unwrap() == "04_missing_file.md")
         );
     }
 }
