@@ -2,6 +2,8 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.7...Unreleased) - ReleaseDate
 
+* [Fixed] wrong match when there are common last lines at Windows
+
 ## [v0.2.7](https://github.com/dalance/mdbook-transcheck/compare/v0.2.6...v0.2.7) - 2021-11-04
 
 * [Fixed] wrong match when there are common last lines
