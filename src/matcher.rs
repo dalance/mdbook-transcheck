@@ -499,7 +499,7 @@ aaa
             Mismatch::MismatchLines(x) => x.source_path.clone(),
             Mismatch::MissingFile(x) => x.source_path.clone(),
         });
-        assert_eq!(ret.len(), 5);
+        assert_eq!(ret.len(), 6);
         assert!(
             matches!(&ret[0], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "01_hello.md" && x.lines.is_empty())
         );
@@ -514,6 +514,9 @@ aaa
         );
         assert!(
             matches!(&ret[4], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "05_keep_original.md" && x.lines.is_empty())
+        );
+        assert!(
+            matches!(&ret[5], Mismatch::MismatchLines(x) if x.source_path.file_name().unwrap() == "06_no_trailing_new_line.md" && x.lines.is_empty())
         );
     }
 
