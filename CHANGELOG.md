@@ -1,6 +1,8 @@
 # Change Log
 
-## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.6...Unreleased) - ReleaseDate
+## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.7...Unreleased) - ReleaseDate
+
+## [v0.2.7](https://github.com/dalance/mdbook-transcheck/compare/v0.2.6...v0.2.7) - 2021-11-04
 
 * [Fixed] wrong match when there are common last lines
 
