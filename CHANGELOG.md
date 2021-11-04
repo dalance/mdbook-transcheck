@@ -2,6 +2,8 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.6...Unreleased) - ReleaseDate
 
+* [Fixed] wrong match when there are common last lines
+
 ## [v0.2.6](https://github.com/dalance/mdbook-transcheck/compare/v0.2.5...v0.2.6) - 2021-11-04
 
 * [Added] color option

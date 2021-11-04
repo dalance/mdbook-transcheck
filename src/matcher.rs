@@ -152,6 +152,22 @@ impl Matcher {
         let source = self.remove_markdown_comment(&source)?;
         let target = self.revert_code_comment(&target);
 
+        // Prevent unexpected diff at the following case
+        //
+        //   aaa           <!--
+        //          vs     aaa
+        //                 -->
+        //                 aaa
+        //
+        // The additional trailing '\n' prevent to match the last line of target with the first line of source.
+        let source_trailing_new_lines = source.len() - source.trim_end_matches('\n').len();
+        let target_trailing_new_lines = target.len() - target.trim_end_matches('\n').len();
+        let additional_new_lines = usize::max(source_trailing_new_lines, target_trailing_new_lines)
+            - target_trailing_new_lines
+            + 1;
+        let mut target = target.to_string();
+        target.push_str(&"\n".repeat(additional_new_lines));
+
         let (mismatch_lines, right_only_lines) = Matcher::get_mismatch_lines(&source, &target);
 
         let mut lines = Vec::new();
