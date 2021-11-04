@@ -164,7 +164,7 @@ impl Matcher {
         let target_trailing_new_lines = target.len() - target.trim_end_matches('\n').len();
         let additional_new_lines = usize::max(source_trailing_new_lines, target_trailing_new_lines)
             - target_trailing_new_lines
-            + 1;
+            + 2;
         let mut target = target.to_string();
         target.push_str(&"\n".repeat(additional_new_lines));
 
