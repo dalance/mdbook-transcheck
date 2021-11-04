@@ -2,6 +2,8 @@
 
 ## [Unreleased](https://github.com/dalance/mdbook-transcheck/compare/v0.2.5...Unreleased) - ReleaseDate
 
+* [Added] color option
+
 ## [v0.2.5](https://github.com/dalance/mdbook-transcheck/compare/v0.2.4...v0.2.5) - 2020-08-26
 
 * [Added] single option

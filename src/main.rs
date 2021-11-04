@@ -59,6 +59,17 @@ pub struct Opt {
     /// Config file
     #[structopt(long = "config", default_value = "transcheck.toml")]
     pub config: PathBuf,
+
+    /// Color mode
+    #[structopt(
+        short = "c",
+        long = "color",
+        possible_value = "auto",
+        possible_value = "always",
+        possible_value = "disable",
+        default_value = "auto"
+    )]
+    pub color: String,
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -82,6 +93,13 @@ fn main() {
 
 fn run() -> Result<bool, Error> {
     let opt = Opt::from_args();
+
+    match opt.color.as_str() {
+        "auto" => console::set_colors_enabled(console::Term::stdout().is_term()),
+        "always" => console::set_colors_enabled(true),
+        "disable" => console::set_colors_enabled(false),
+        _ => unreachable!(),
+    }
 
     let config = search_config(&opt.config);
 
