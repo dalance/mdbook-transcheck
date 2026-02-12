@@ -25,7 +25,7 @@ pre-release-replacements    = [
 
 [dependencies]
 anyhow       = "1"
-console      = "0.15"
+console      = "0.16"
 diff         = "0.1"
 regex        = "1"
 serde        = "1"
